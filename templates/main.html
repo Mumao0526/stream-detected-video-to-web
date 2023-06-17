@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            margin: 25px;
+        }
+
+        div.polaroid {
+            width: 500px;
+            background-color: white;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
+            margin-bottom: 25px;
+        }
+
+        div.container {
+            text-align: center;
+            padding: 10px 20px;
+        }
+
+        img {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+            width: 350px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Responsive Polaroid Images / Cards</h1>
+
+    <div class="polaroid">
+      <img src="{{ url_for('video_feed') }}" alt="5 Terre" style="width:100%">
+      <div class="container">
+      <p>IMG 1</p>
+      </div>
+    </div>
+    
+    <div class="polaroid">
+      <img src="" alt="Norther Lights" style="width:100%">
+      <div class="container">
+      <p>IMG 2</p>
+      </div>
+    </div>
+</body>
+
+</html>
