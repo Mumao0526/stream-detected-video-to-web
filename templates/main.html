@@ -41,8 +41,11 @@
       </div>
     </div>
     
+    <form method="post" action="{{ url_for('renew_img') }}">
+
+    </form>
     <div class="polaroid">
-      <img src="" alt="Norther Lights" style="width:100%">
+      <img src="{{ url_for('video_feed_2') }}" alt="Norther Lights" style="width:100%">
       <div class="container">
       <p>IMG 2</p>
       </div>
