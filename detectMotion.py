@@ -17,15 +17,15 @@ import supervision as sv
 
 class detectMotion:
     def __init__(self, src, ObjectID = 0, model = "yolov8l.pt"):
-        self.src = src
-        self.ObjectID = ObjectID
-        self.model = YOLO(model)
-        self.outputFrame = None
-        self.lock = threading.Lock()
-        self.inSide = False
-        self.counter = Counter()
-        self.detect_thread = None
-        self.thread_is_End = False
+        self.src = src  # 影像來源
+        self.ObjectID = ObjectID    # 識別ID
+        self.model = YOLO(model)    # 識別模組
+        self.outputFrame = None     # 識別後的圖像
+        self.lock = threading.Lock()    # 執行續的鎖
+        self.inSide = False         # 來源影像內是否有識別到指定物件
+        self.counter = Counter()    # 初始化計時器
+        self.detect_thread = None   # 旗標
+        self.thread_is_End = False  # 結束旗標
 
         self.TRIGER_COUNTER = 5  # 觸發inside狀態變換的連續幀數
         self.IMG_LIMIT_IN_FILE = 5	# 圖片資料夾內的照片數量限制
@@ -35,26 +35,27 @@ class detectMotion:
         self.img_filename_deque_true = deque(maxlen=10)
         self.img_filename_deque_false = deque(maxlen=10)
 
-        # 設定物件標註參數
+        # 設定識別物件的標註參數
         self.box_annotator = sv.BoxAnnotator(
             thickness=2,
             text_thickness=2,
             text_scale=1
         )
-        
+    
+    # 以新執行續執行 detect
     def start(self):
         self.vs = VideoStream(src=self.src).start()
         time.sleep(2.0)
         self.detect_thread = threading.Thread(target=self.detect)
         self.detect_thread.start()
     
+    # 終止程序
     def stop(self):
         if self.vs is not None:
             self.vs.stop()
             self.thread_is_End = True
         if self.detect_thread is not None:
             self.detect_thread.join()
-
 
     # 寫入 log 檔
     def save_Log(self, current_time, detections, inSide):
@@ -100,22 +101,24 @@ class detectMotion:
                 print(f"Error: Deleting file in {directory}")
                 return
 
-        return
-
-                           
+        return                      
     
+    # 回傳識別後的 frame
     def get_outputframe(self):
         return self.outputFrame
     
+    # 獲取全部的 log
     def get_Log(self):
         with open('log.txt', 'r') as file:
             log = file.read()
         return log
     
+    # 獲取最後一項 log
     def get_final_log(self):
         logs = self.get_Log().split('\n')
         return logs[-2] if len(logs) > 1 else None
     
+    # 獲取最新的一張識別到的照片
     def get_final_img(self, IMG_FILENAME):
         directory = os.path.join(IMG_FILENAME)
         # 檢查文件夾是否存在
@@ -145,10 +148,8 @@ class detectMotion:
         else:
             return None
 
-
-
-
-    def generate(self):
+    # 回傳字元格式的識別圖像
+    def get_detected_image_in_byte(self):
              # loop over frames from the output stream
         while True:
             # wait until the lock is acquired
@@ -165,7 +166,8 @@ class detectMotion:
             # yield the output frame in the byte format
             yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
                 bytearray(encodedImage) + b'\r\n')
-            
+    
+    # 將字元格式的識別圖像傳到指定IP網站
     def sendFrameToWeb(self, ip, port, frame=None):
         while True:
             with self.lock:
@@ -179,6 +181,7 @@ class detectMotion:
             resp = requests.post(f'http://{ip}:{port}{self.URL}', data=bytearray(encodedImage))
             return resp
 
+    # 分辨
     def detect(self):
         # loop over frames from the video stream
         while True:
@@ -214,7 +217,7 @@ class detectMotion:
             self.counter[object_detected] += 1  # 當前狀態的次數+1
             self.counter[not object_detected] = 0   # 初始化另一個狀態
 
-            # 如果符合觸發條件（例如連續五幀都有偵測到貓咪），則更改 inSide 的值，並儲存當前幀的影像
+            # 如果符合觸發條件（例如連續五次都有(或沒有)偵測到貓咪），則更改 inSide 的值，並儲存當前幀的影像
             if (not self.inSide and self.counter[True] >= self.TRIGER_COUNTER) or (self.inSide and self.counter[False] >= self.TRIGER_COUNTER):
                 self.inSide = not self.inSide
 

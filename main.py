@@ -8,23 +8,22 @@ from flask import render_template
 app = Flask(__name__)
 
 # 設定影片來源
-src = 0  # 這個例子使用第一個攝影機
-ObjectID = 0  # 這個例子檢測的物件ID為0
-model_path = "yolov8l.pt"  # 這個例子使用 yolov8l.pt 模型
+src = 0  # 使用第一個本機裝置的攝影機
+ObjectID = 0  # 檢測的物件ID為0
+model_path = "yolov8l.pt"  # 使用 yolov8l.pt 模型
 
 # 建立物件並開始偵測
 detector = detectMotion(src, ObjectID, model_path)
 
+# 設定網站來源
 @app.route("/")
 def index():
-	# return the rendered template
 	return render_template("main.html")
 
+# 設定video_feed資料
 @app.route("/video_feed")
 def video_feed():
-    # return the response generated along with the specific media
-    # type (mime type)
-    return Response(detector.generate(),
+    return Response(detector.get_detected_image_in_byte(),
         mimetype = "multipart/x-mixed-replace; boundary=frame")
 
 def main():
@@ -32,6 +31,8 @@ def main():
     detector.start()
 
     '''
+    # TEST
+
     while True:
         # 獲取最新的影像
         frame = detector.get_outputframe()
