@@ -5,6 +5,7 @@ import time
 from detectHandler import detectHandler
 from flask import Response
 from flask import Flask
+from flask import jsonify
 from flask import render_template
 
 #os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -32,10 +33,15 @@ def video_feed():
         mimetype = "multipart/x-mixed-replace; boundary=frame")
 
 # 設定video_feed資料
-@app.route("/video_feed_2")
-def video_feed_2():
+@app.route("/image_feed")
+def image_feed():
     return Response(detector.get_final_img(IMG_FILENAME="img"),
         mimetype = "multipart/x-mixed-replace; boundary=frame")
+
+@app.route('/get_log')
+def get_log():
+    log_message = detector.get_final_log()
+    return jsonify(log=log_message)
 
 
 
@@ -74,7 +80,9 @@ def main():
     cv2.destroyAllWindows()
 
 def print_message():
-    print(detector.get_final_log())
+    while True:
+        return detector.get_final_log()
+    
 
 def show_img():
     img = cv2.imdecode(detector.get_final_img(IMG_FILENAME="img"), cv2.IMREAD_COLOR)

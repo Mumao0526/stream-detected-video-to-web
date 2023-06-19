@@ -5,13 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+    <script>
+        $(document).ready(function(){
+            setInterval(function(){
+                $.getJSON('/get_log', function(data) {
+                    $('p[name="log_message"]').text(data.log);
+                });
+            }, 1000);
+        });
+    </script>
+
     <style>
         body {
             margin: 25px;
         }
 
         div.polaroid {
-            width: 500px;
+            width: 400px;
             background-color: white;
             box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.19);
             margin-bottom: 25px;
@@ -32,24 +44,30 @@
 </head>
 
 <body>
-    <h1>Responsive Polaroid Images / Cards</h1>
+    <h1>stream detected video to web</h1>
 
     <div class="polaroid">
-      <img src="{{ url_for('video_feed') }}" alt="5 Terre" style="width:100%">
+      <img src="{{ url_for('video_feed') }}" alt="" style="width:100%">
       <div class="container">
-      <p>IMG 1</p>
+      <p>Video Stream</Video></p>
       </div>
+    </div>
+
+    <br>
+
+    <div class="polaroid" style="display: inline-block;">
+      <img src="{{ url_for('image_feed') }}" alt="" style="width:100%">
+      <div class="container">
+      <p>Final Detected Frame</p>
+      </div>
+    </div>
+
+    <div style="display: inline-block;">
+        <h2>Final log message</h2>
+        <p name="log_message">{{ log }} </p>
     </div>
     
-    <form method="post" action="{{ url_for('renew_img') }}">
 
-    </form>
-    <div class="polaroid">
-      <img src="{{ url_for('video_feed_2') }}" alt="Norther Lights" style="width:100%">
-      <div class="container">
-      <p>IMG 2</p>
-      </div>
-    </div>
 </body>
 
 </html>

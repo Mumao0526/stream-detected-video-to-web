@@ -123,34 +123,37 @@ class detectHandler:
     
     # 獲取最新的一張識別到的照片
     def get_final_img(self, IMG_FILENAME):
-        directory = os.path.join(IMG_FILENAME)
-        # 檢查文件夾是否存在
-        if not os.path.exists(directory):
-            print(f"Error: Finding directory {directory}")
-            return None
+        while True:
+            with self.lock:
+                directory = os.path.join(IMG_FILENAME)
+                # 檢查文件夾是否存在
+                if not os.path.exists(directory):
+                    print(f"Error: Finding directory {directory}")
+                    return None
 
-        # 獲取文件夾中所有照片的列表
-        try:
-            file_list = os.listdir(directory)
-        except OSError:
-            print(f"Error: Reading directory {directory}")
-            return None
-        
-        if not file_list:  # 如果列表為空，直接返回 None
-            return None
+                # 獲取文件夾中所有照片的列表
+                try:
+                    file_list = os.listdir(directory)
+                except OSError:
+                    print(f"Error: Reading directory {directory}")
+                    return None
+                
+                if not file_list:  # 如果列表為空，直接返回 None
+                    return None
 
-        # 找到最新的圖片（列表中的最後一個元素）
-        filename = file_list[-1]
-        img_path = os.path.join(directory, filename)
+                # 找到最新的圖片（列表中的最後一個元素）
+                filename = file_list[-1]
+                img_path = os.path.join(directory, filename)
 
-        frame = cv2.imread(img_path)
-        # encode the frame in JPEG format
-        (flag, encodedImage) = cv2.imencode(".jpg", frame)
-        if flag:
-            yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
-                bytearray(encodedImage) + b'\r\n')
-        else:
-            return None
+                frame = cv2.imread(img_path)
+                # encode the frame in JPEG format
+                (flag, encodedImage) = cv2.imencode(".jpg", frame)
+                
+            if flag:
+                yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
+                    bytearray(encodedImage) + b'\r\n')
+            else:
+                return None
 
     # 回傳字元格式的識別圖像
     def get_detected_image_in_byte(self):
