@@ -15,8 +15,8 @@ app = Flask(__name__)
 
 src = 0  # 使用第一個本機裝置的攝影機
 src2 = "http://192.168.0.201:81/stream"  # 使用ESP32-CAM的攝影機
-ObjectID = 0  # 檢測的物件ID為0
-model_path = "yolov8l.pt"  # 使用 yolov8l.pt 模型
+ObjectID = 15  # 檢測的物件ID為0
+model_path = "yolov8m.pt"  # 使用 yolov8l.pt 模型
 
 # 建立物件
 detector = detectHandler(src = src, ObjectID=ObjectID, model=model_path)
@@ -32,12 +32,13 @@ def video_feed():
     return Response(detector.get_detected_image_in_byte(),
         mimetype = "multipart/x-mixed-replace; boundary=frame")
 
-# 設定video_feed資料
+# 傳送最後一張記錄照片
 @app.route("/image_feed")
 def image_feed():
     return Response(detector.get_final_img(IMG_FILENAME="img"),
         mimetype = "multipart/x-mixed-replace; boundary=frame")
 
+# 更新log
 @app.route('/get_log')
 def get_log():
     log_message = detector.get_final_log()
@@ -48,9 +49,9 @@ def get_log():
 def main():
     # 開始偵測
     detector.start()
-
     app.run(debug=True,threaded=True, use_reloader=False)
 
+    '''
     # TEST
 
     while True:
@@ -71,19 +72,11 @@ def main():
         elif key == ord("i"):
             show_thread = threading.Thread(target=show_img)
             show_thread.start()
-             
-
-    
-    
+    '''
     # 停止偵測並關閉視窗
     detector.stop()
     cv2.destroyAllWindows()
-
-def print_message():
-    while True:
-        return detector.get_final_log()
     
-
 def show_img():
     img = cv2.imdecode(detector.get_final_img(IMG_FILENAME="img"), cv2.IMREAD_COLOR)
     cv2.imshow("img", img)
