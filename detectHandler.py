@@ -1,25 +1,24 @@
-# import the necessary packages
-from imutils.video import VideoStream
-import threading
 import argparse
 import datetime
-import imutils
-import time
-import cv2
 import os
+import threading
+import time
+from collections import Counter, deque
+
+import cv2
+import imutils
 import numpy as np
 import requests
-
-from collections import Counter, deque
-from ultralytics import YOLO
 import supervision as sv
+from imutils.video import VideoStream
+from ultralytics import YOLO
 
 
 class detectHandler:
     def __init__(self, src, log_filename = "log.txt", IMG_FILENAME = "img", ObjectID = 0, model = "yolov8l.pt"):
         self.src = src  # 影像來源
         self.ObjectID = ObjectID    # 識別ID
-        self.model_path = model
+        self.model_path = model     # 識別模組路徑
         self.model = None     # 識別模組
         self.outputFrame = None     # 識別後的圖像
         self.lock = threading.Lock()    # 執行續的鎖
@@ -62,16 +61,16 @@ class detectHandler:
 
     # 寫入 log 檔
     def save_Log(self, current_time, detections, inSide):
-        # get cuurent time
+        # 獲取當前時間
         current_time = current_time.replace("_", "/")
         with open(self.log_filename, 'a') as file:
             if len(detections) > 0:
                 count = 0
-                # get parameter from detection
+                # 從 detection 獲取資料
                 for _, confidence, class_id, _ in detections:
                     count += 1
                     class_name = self.model.model.names[class_id]
-                    # write log to log.txt
+                    # 寫入 log.txt
                     file.write(f"{current_time}:{class_name} {confidence:0.2f} {inSide} -From number{count}\n")
             else:
                 file.write(f"{current_time}:No detection {inSide}\n")
@@ -104,7 +103,7 @@ class detectHandler:
                 print(f"Error: Deleting file in {directory}")
                 return
 
-        return                      
+        return
     
     # 回傳識別後的 frame
     def get_outputframe(self):
@@ -124,6 +123,7 @@ class detectHandler:
     # 獲取最新的一張識別到的照片
     def get_final_img(self, IMG_FILENAME):
         while True:
+            # 等待鎖
             with self.lock:
                 directory = os.path.join(IMG_FILENAME)
                 # 檢查文件夾是否存在
@@ -146,7 +146,7 @@ class detectHandler:
                 img_path = os.path.join(directory, filename)
 
                 frame = cv2.imread(img_path)
-                # encode the frame in JPEG format
+                # 以 JPEG 格式編碼
                 (flag, encodedImage) = cv2.imencode(".jpg", frame)
                 
             if flag:
@@ -157,45 +157,31 @@ class detectHandler:
 
     # 回傳字元格式的識別圖像
     def get_detected_image_in_byte(self):
-             # loop over frames from the output stream
+        # 循環輸出流中的幀
         while True:
-            # wait until the lock is acquired
+            # 等待直到獲取鎖
             with self.lock:
-                # check if the output frame is available, otherwise skip
-                # the iteration of the loop
+                # 檢查輸出幀是否可用，否則跳過
+                # 循環的迭代次數
                 if self.get_outputframe() is None:
                     continue
-                # encode the frame in JPEG format
+                # 將幀編碼為 JPEG 格式
                 (flag, encodedImage) = cv2.imencode(".jpg", self.get_outputframe())
-                # ensure the frame was successfully encoded
+                # 確保幀已成功編碼
                 if not flag:
                     continue
-            # yield the output frame in the byte format
+            # 產生字節格式的輸出幀
             yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
                 bytearray(encodedImage) + b'\r\n')
-    
-    # 將字元格式的識別圖像傳到指定IP網站
-    def sendFrameToWeb(self, ip, port, frame=None):
-        while True:
-            with self.lock:
-                if frame is None:
-                    frame = self.get_outputframe()
-                # encode the frame in JPEG format
-                (flag, encodedImage) = cv2.imencode(".jpg", frame)
-                # ensure the frame was successfully encoded
-                if not flag:
-                    return
-            resp = requests.post(f'http://{ip}:{port}{self.URL}', data=bytearray(encodedImage))
-            return resp
 
     # 分辨
     def detect(self):
-        # loop over frames from the video stream
+        # 取得 model
         if self.model is None:
             self.model = YOLO(self.model_path)
+            
+        # 循環視頻流中的幀
         while True:
-            # read the next frame from the video stream, resize it,
-            # convert the frame to grayscale, and blur it
             frame = self.vs.read()
             # 用YOLO模型進行物件偵測
             result = self.model(frame, agnostic_nms=True,conf=0.5)[0]
@@ -215,7 +201,7 @@ class detectHandler:
                 labels=labels
             )
 
-            # grab the current timestamp and draw it on the frame
+            # 將當前時間標示在圖片上
             timestamp = datetime.datetime.now()
             cv2.putText(frame, timestamp.strftime(
                 "%A %d %B %Y %I:%M:%S%p"), (10, frame.shape[0] - 10),
@@ -243,12 +229,10 @@ class detectHandler:
                 # 寫入 log 檔
                 self.save_Log(current_time, detections, self.inSide)
 
-            # acquire the lock, set the output frame, and release the
-            # lock
+            # 鎖打開了才執行
             with self.lock:
                 self.outputFrame = frame.copy()
             
-            # end loop
+            # 結束程式
             if self.stopped:
                 break
-
