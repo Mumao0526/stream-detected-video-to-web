@@ -1,8 +1,6 @@
 import datetime
-import os
 import threading
 import time
-import imutils
 from collections import Counter
 
 import cv2
@@ -73,7 +71,7 @@ class DetectHandler:
                 # 確保幀已成功編碼
                 if not flag:
                     continue
-            # 產生字節格式的輸出幀
+            # 產生 byte 格式的輸出幀
             yield(b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + 
                 bytearray(encodedImage) + b'\r\n')
 
@@ -90,74 +88,73 @@ class DetectHandler:
         # 循環視頻流中的幀
         while True:
             # 獲得影像幀
-            ret, frame = self.vs.stream.read()
-            # 成功獲得影像幀
-            if ret:
-                # 將當前時間標示在圖片上
-                timestamp = datetime.datetime.now()
-                cv2.putText(frame, # 圖像內容
-                            timestamp.strftime("%A %d %B %Y %I:%M:%S%p"), # 文字
-                            (10, frame.shape[0] - 10), # 文字座標(左下角)
-                            cv2.FONT_HERSHEY_SIMPLEX, # 字型
-                            0.35, # 字體大小
-                            (0, 0, 255), # 文字顏色
-                            1)  # 字體粗細
+            frame = self.vs.read()
+
+            # 將當前時間標示在圖片上
+            timestamp = datetime.datetime.now()
+            cv2.putText(frame, # 圖像內容
+                        timestamp.strftime("%A %d %B %Y %I:%M:%S%p"), # 文字
+                        (10, frame.shape[0] - 10), # 文字座標(左下角)
+                        cv2.FONT_HERSHEY_SIMPLEX, # 字型
+                        0.35, # 字體大小
+                        (0, 0, 255), # 文字顏色
+                        1)  # 字體粗細
+            
+            # 每過 frameCount 幀後才偵測一次
+            if accumulated_frames > self.frameCount:
+                # 初始化累計幀數
+                accumulated_frames = 0
+                # 用YOLO模型進行物件偵測
+                result = self.model(frame, agnostic_nms=True,conf=0.5)[0]
+                detections = sv.Detections.from_yolov8(result)
+                detections = detections[detections.class_id == self.ObjectID]   # 只擷取指定類型的物件
+
+                # 在畫面上顯示物件的邊界框和標籤
+                labels = [
+                    f"{self.model.model.names[class_id]} {confidence:0.2f}"
+                    for _, confidence, class_id, _
+                    in detections
+                ]
+
+                frame = self.box_annotator.annotate(
+                    scene=frame, 
+                    detections=detections, 
+                    labels=labels
+                )
                 
-                # 每過 frameCount 幀後才偵測一次
-                if accumulated_frames > self.frameCount:
-                    # 初始化累計幀數
-                    accumulated_frames = 0
-                    # 用YOLO模型進行物件偵測
-                    result = self.model(frame, agnostic_nms=True,conf=0.5)[0]
-                    detections = sv.Detections.from_yolov8(result)
-                    detections = detections[detections.class_id == self.ObjectID]   # 只擷取指定類型的物件
+                # 如果偵測到的物件包含指定物件，則更新計數器的數值
+                object_detected = len(detections) > 0
+                self.counter[object_detected] += 1  # 當前狀態的次數+1
+                self.counter[not object_detected] = 0   # 初始化另一個狀態
 
-                    # 在畫面上顯示物件的邊界框和標籤
-                    labels = [
-                        f"{self.model.model.names[class_id]} {confidence:0.2f}"
-                        for _, confidence, class_id, _
-                        in detections
-                    ]
+                # 如果符合觸發條件（例如連續五次都有(或沒有)偵測到貓咪），則更改 is_inSide 的值，並儲存當前幀的影像
+                if (not self.is_inSide and self.counter[True] >= self.TRIGER_COUNTER) or (self.is_inSide and self.counter[False] >= self.TRIGER_COUNTER):
+                    # 狀態切換
+                    self.is_inSide = not self.is_inSide
 
-                    frame = self.box_annotator.annotate(
-                        scene=frame, 
-                        detections=detections, 
-                        labels=labels
-                    )
-                    
-                    # 如果偵測到的物件包含指定物件，則更新計數器的數值
-                    object_detected = len(detections) > 0
-                    self.counter[object_detected] += 1  # 當前狀態的次數+1
-                    self.counter[not object_detected] = 0   # 初始化另一個狀態
+                    # 獲取一個執行緒鎖，並在程式碼塊結束時自動釋放這個鎖
+                    with self.lock:
+                        # 偵測到指定物件時，載圖到img資料夾
+                        if self.is_inSide :
+                            # 儲存當前幀
+                            self.imageHandler.saveimage(frame)
+                        
+                        # 寫入 log 檔
+                        self.logger.save_log(detections=detections, is_inSide=self.is_inSide)
 
-                    # 如果符合觸發條件（例如連續五次都有(或沒有)偵測到貓咪），則更改 is_inSide 的值，並儲存當前幀的影像
-                    if (not self.is_inSide and self.counter[True] >= self.TRIGER_COUNTER) or (self.is_inSide and self.counter[False] >= self.TRIGER_COUNTER):
-                        # 狀態切換
-                        self.is_inSide = not self.is_inSide
-
-                        # 獲取一個執行緒鎖，並在程式碼塊結束時自動釋放這個鎖
-                        with self.lock:
-                            # 偵測到指定物件時，載圖到img資料夾
-                            if self.is_inSide :
-                                # 儲存當前幀
-                                self.imageHandler.saveimage(frame)
-                            
-                            # 寫入 log 檔
-                            self.logger.save_log(detections=detections, is_inSide=self.is_inSide)
-
-                # 顯示FPS
-                if (time.time() - start_time) != 0:  # 實時顯示幀數
-                    cv2.putText(frame, 
-                                "FPS {0}".format(float('%.1f' % (1 / (time.time() - start_time)))), # FPS = 1 / (curret time - previous time)
-                                (10, frame.shape[0] - 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255),
-                                2)
-                    
-                # 幀數累加
-                accumulated_frames += 1
-                # 計算FPS用，紀錄本幀處理的時間
-                start_time = time.time()
-
+            # 顯示FPS
+            if (time.time() - start_time) != 0:  # 實時顯示幀數
+                cv2.putText(frame, 
+                            "FPS {0}".format(float('%.1f' % (1 / (time.time() - start_time)))), # FPS = 1 / (curret time - previous time)
+                            (10, frame.shape[0] - 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255),
+                            2)
+                
+            # 幀數累加
+            accumulated_frames += 1
+            # 計算FPS用，紀錄本幀處理的時間
+            start_time = time.time()
+            
             # 獲取一個執行緒鎖，並在程式碼塊結束時自動釋放這個鎖
             with self.lock:
                 self.outputFrame = frame.copy()
